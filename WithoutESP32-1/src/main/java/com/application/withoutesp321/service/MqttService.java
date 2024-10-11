@@ -12,11 +12,13 @@ public class MqttService implements MqttCallback {
     private MqttClient client;
     private String lastTemp = "No Data";
     private String lastHum = "No Data";
+    private final DynamoDBService dynamoDBService; // Ajout du service DynamoDB
 
-    public MqttService() {
+    public MqttService(DynamoDBService dynamoDBService) {
+        this.dynamoDBService = dynamoDBService; // Injecter le service DynamoDB
         try {
             client = new MqttClient("tcp://test.mosquitto.org:1883", MqttClient.generateClientId(), new MemoryPersistence());
-            client.setCallback(this);
+            client.setCallback((MqttCallback) this);
             client.connect();
             // Subscribe to both temperature and humidity topics
             client.subscribe("/Thinkitive/temp");
@@ -40,6 +42,11 @@ public class MqttService implements MqttCallback {
         } else if (topic.equals("/Thinkitive/hum")) {
             lastHum = payload;
             System.out.println("Humidity received: " + lastHum);
+        }
+
+        // Sauvegarder dans DynamoDB après avoir reçu les deux données
+        if (!lastTemp.equals("No Data") && !lastHum.equals("No Data")) {
+            dynamoDBService.saveSensorData(lastTemp, lastHum);
         }
     }
 
